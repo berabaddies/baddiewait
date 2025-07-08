@@ -129,6 +129,7 @@ export default function WaitlistApp() {
         setUserStatus('new')
       }
     } catch (err) {
+      console.error('Error checking user status:', err)
       setUserStatus('new')
     }
   }, [session?.user])
@@ -158,7 +159,7 @@ export default function WaitlistApp() {
       <div className="min-h-screen flex items-center justify-center p-4" style={{background: 'linear-gradient(135deg, #f8d7da 0%, #f4c2a1 50%, #fef7e6 100%)'}}>
         <div className="bg-white/90 backdrop-blur-lg rounded-2xl p-8 max-w-md w-full text-center border border-pink-200 shadow-xl">
           <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-pink-800 mb-2">You're In! 🎉</h2>
+          <h2 className="text-2xl font-bold text-pink-800 mb-2">You made it! 🎉</h2>
           <p className="text-pink-600 mb-6">
             Welcome to the waitlist! {walletAddress ? 'Sweet treats just for you' : 'Add your wallet for exclusive Y2K traits and VIP features.'}
           </p>
