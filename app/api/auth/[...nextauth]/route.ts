@@ -30,18 +30,12 @@ const handler = NextAuth({
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === 'twitter') {
-        console.log('=== FULL PROFILE STRUCTURE ===')
-        console.log(JSON.stringify(profile, null, 2))
-        console.log('=== CHECKING FOLLOWER ACCESS PATHS ===')
-        console.log('profile?.public_metrics:', profile?.public_metrics)
-        console.log('profile?.data?.public_metrics:', profile?.data?.public_metrics)
-        console.log('profile?.data?.public_metrics?.followers_count:', profile?.data?.public_metrics?.followers_count)
+        const twitterId = (profile as any)?.id || user.id
         
-        const twitterId = profile?.id || user.id
-        
-        // Try the correct path based on what we see in logs
-        const followerCount = profile?.data?.public_metrics?.followers_count || 
-                             profile?.public_metrics?.followers_count || 0
+        // Use type assertion to access Twitter-specific properties
+        const twitterProfile = profile as any
+        const followerCount = twitterProfile?.data?.public_metrics?.followers_count || 
+                             twitterProfile?.public_metrics?.followers_count || 0
         
         console.log('Final follower count:', followerCount)
         
@@ -49,17 +43,17 @@ const handler = NextAuth({
           .from('waitlist_users')
           .upsert({
             twitter_id: twitterId,
-            twitter_handle: profile?.username || user.name?.replace('@', '') || 'unknown',
-            twitter_name: profile?.name || user.name || 'Unknown User',
-            twitter_avatar: profile?.profile_image_url || user.image || '',
+            twitter_handle: twitterProfile?.username || user.name?.replace('@', '') || 'unknown',
+            twitter_name: twitterProfile?.name || user.name || 'Unknown User',
+            twitter_avatar: twitterProfile?.profile_image_url || user.image || '',
             follower_count: followerCount,
-            is_verified: profile?.verified || false,
+            is_verified: twitterProfile?.verified || false,
           }, {
             onConflict: 'twitter_id'
           })
           .select()
           .single()
-    
+  
         if (error) {
           console.error('Error storing user:', error)
           return false
