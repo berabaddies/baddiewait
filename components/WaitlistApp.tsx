@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { signIn, useSession } from 'next-auth/react'
 import { createClient } from '@supabase/supabase-js'
-import { Play, Users, Trophy, Wallet, ExternalLink, CheckCircle } from 'lucide-react'
+import { Users, Trophy, Wallet, ExternalLink, CheckCircle } from 'lucide-react'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -117,7 +117,7 @@ export default function WaitlistApp() {
     if (!session?.user) return
   
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('waitlist_users')
         .select('wallet_address, id')
         .or(`twitter_id.eq.${session.user.email || session.user.name},twitter_handle.eq.${session.user.name}`)
@@ -132,6 +132,14 @@ export default function WaitlistApp() {
       setUserStatus('new')
     }
   }, [session?.user])
+
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      checkUserStatus()
+    } else if (status === 'unauthenticated') {
+      setUserStatus('unknown')
+    }
+  }, [status, session, checkUserStatus])
   
   
   // Update the Twitter auth handler
@@ -152,7 +160,7 @@ export default function WaitlistApp() {
           <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-pink-800 mb-2">You're In! 🎉</h2>
           <p className="text-pink-600 mb-6">
-            Welcome to the waitlist! {walletAddress ? 'You\'ll receive exclusive BeraBaddie traits and VIP customization access for connecting your Berachain wallet.' : 'Consider adding your Berachain wallet later for exclusive Y2K traits and VIP features.'}
+            Welcome to the waitlist! {walletAddress ? 'Sweet treats just for you' : 'Add your wallet for exclusive Y2K traits and VIP features.'}
           </p>
           <div className="bg-pink-100 rounded-lg p-4 mb-6 border border-pink-200">
             <p className="text-pink-800 font-medium">Share your referral link:</p>
@@ -239,7 +247,7 @@ export default function WaitlistApp() {
       {session?.user && (
         <div className="flex items-center space-x-2 bg-pink-100 rounded-lg px-3 py-1">
           <CheckCircle className="w-4 h-4 text-green-500" />
-          <span className="text-sm text-pink-700">You're on the list!</span>
+          <span className="text-sm text-pink-700">Youre on the list!</span>
         </div>
       )}
       <div className="flex items-center space-x-2">
@@ -310,13 +318,13 @@ export default function WaitlistApp() {
     </svg>
     <span>
       {userStatus === 'checking' ? 'Loading...' :
-       userStatus === 'existing' ? 'You\'re Already In!' :
+       userStatus === 'existing' ? 'You are already In!' :
        userStatus === 'new' && session?.user ? 'Complete Signup' :
        'Join Waitlist with Twitter'}
     </span>
   </button>
   <p className="text-center text-pink-600 text-sm">
-  {userStatus === 'existing' ? 'Thanks for joining! Share with friends below.' :
+  {userStatus === 'existing' ? 'Thanks for joining!' :
    `Join ${totalUsers}+ fashion lovers and NFT collectors already on the waitlist`}
 </p>
 </div>
@@ -326,7 +334,7 @@ export default function WaitlistApp() {
           <div className="space-y-6">
             <div className="bg-white/70 backdrop-blur-lg rounded-2xl p-6 border border-pink-200 shadow-lg">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-pink-800">Who's Already In</h2>
+                <h2 className="text-2xl font-bold text-pink-800">Already Signed Up</h2>
                 <div className="flex items-center space-x-2 text-pink-600">
                   <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse"></div>
                   <span className="text-sm">Live</span>
