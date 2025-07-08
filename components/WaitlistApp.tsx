@@ -87,15 +87,15 @@ export default function WaitlistApp() {
     if (!session?.user) return
   
     // Try multiple ways to identify the user
-    const userId = session.user.id || session.user.email || session.user.name
+    const userId = session.user.email || session.user.name
   
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from('waitlist_users')
       .update({ wallet_address: walletAddress })
       .or(`twitter_id.eq.${userId},twitter_handle.eq.${session.user.name}`)
   
-    if (error) {
-      console.error('Error updating wallet:', error)
+    if (updateError) {
+      console.error('Error updating wallet:', updateError)
     } else {
       setIsSubmitted(true)
       fetchWaitlistMembers() // Refresh the list
