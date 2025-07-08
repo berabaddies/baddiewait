@@ -7,6 +7,33 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Define Twitter-specific profile types
+interface TwitterPublicMetrics {
+  followers_count: number
+  following_count: number
+  tweet_count: number
+  listed_count: number
+}
+
+interface TwitterProfileData {
+  id: string
+  username: string
+  name: string
+  profile_image_url: string
+  verified: boolean
+  public_metrics: TwitterPublicMetrics
+}
+
+interface TwitterProfile {
+  id?: string
+  username?: string
+  name?: string
+  profile_image_url?: string
+  verified?: boolean
+  public_metrics?: TwitterPublicMetrics
+  data?: TwitterProfileData
+}
+
 const handler = NextAuth({
   providers: [
     TwitterProvider({
@@ -30,10 +57,9 @@ const handler = NextAuth({
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === 'twitter') {
-        const twitterId = (profile as any)?.id || user.id
+        const twitterProfile = profile as TwitterProfile
+        const twitterId = twitterProfile?.id || user.id
         
-        // Use type assertion to access Twitter-specific properties
-        const twitterProfile = profile as any
         const followerCount = twitterProfile?.data?.public_metrics?.followers_count || 
                              twitterProfile?.public_metrics?.followers_count || 0
         
@@ -53,7 +79,7 @@ const handler = NextAuth({
           })
           .select()
           .single()
-  
+
         if (error) {
           console.error('Error storing user:', error)
           return false
