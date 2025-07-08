@@ -1,10 +1,9 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { signIn, useSession } from 'next-auth/react'
 import { createClient } from '@supabase/supabase-js'
 import { Play, Users, Trophy, Wallet, ExternalLink, CheckCircle } from 'lucide-react'
-import { signOut } from 'next-auth/react'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -114,37 +113,26 @@ export default function WaitlistApp() {
     return count.toString()
   }
 
-// Check if user just signed in and hasn't completed the flow
-useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      checkUserStatus()
-    } else if (status === 'unauthenticated') {
-      setUserStatus('unknown')
-    }
-  }, [status, session])
-  
-  const checkUserStatus = async () => {
+  const checkUserStatus = useCallback(async () => {
     if (!session?.user) return
   
     try {
       const { data, error } = await supabase
         .from('waitlist_users')
         .select('wallet_address, id')
-        .or(`twitter_id.eq.${session.user.id},twitter_handle.eq.${session.user.name}`)
+        .or(`twitter_id.eq.${session.user.email || session.user.name},twitter_handle.eq.${session.user.name}`)
         .single()
   
       if (data) {
-        // User already exists - let them browse
         setUserStatus('existing')
       } else {
-        // New user - but don't auto-redirect, let them choose
         setUserStatus('new')
       }
     } catch (err) {
-      // User doesn't exist yet
       setUserStatus('new')
     }
-  }
+  }, [session?.user])
+  
   
   // Update the Twitter auth handler
   const handleTwitterAuth = () => {
@@ -289,7 +277,7 @@ useEffect(() => {
         controls 
         className="w-full h-full object-cover"
       >
-        <source src="/baddies2.mp4" type="video/mp4" />
+        <source src="/minibaddie.mp4" type="video/mp4" />
         Your browser does not support the video tag.
       </video>
     </div>
@@ -328,9 +316,9 @@ useEffect(() => {
     </span>
   </button>
   <p className="text-center text-pink-600 text-sm">
-    {userStatus === 'existing' ? 'Thanks for joining! Share with friends below.' :
-     'Join {totalUsers}+ fashion lovers and NFT collectors already on the waitlist'}
-  </p>
+  {userStatus === 'existing' ? 'Thanks for joining! Share with friends below.' :
+   `Join ${totalUsers}+ fashion lovers and NFT collectors already on the waitlist`}
+</p>
 </div>
           </div>
 
