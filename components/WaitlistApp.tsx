@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { signIn, useSession } from 'next-auth/react'
+import { signIn, signOut, useSession } from 'next-auth/react'
 import { createClient } from '@supabase/supabase-js'
 import { Users, Trophy, Wallet, ExternalLink, CheckCircle } from 'lucide-react'
 
@@ -30,6 +30,34 @@ export default function WaitlistApp() {
   const [totalUsers, setTotalUsers] = useState(0)
   const [recentSignups, setRecentSignups] = useState(0)
   const [userStatus, setUserStatus] = useState<'checking' | 'new' | 'existing' | 'unknown'>('checking')
+  const [userReferralCode, setUserReferralCode] = useState('')
+  const [incomingReferralCode, setIncomingReferralCode] = useState('')
+
+  // Add this debug logging right after your useState declarations
+console.log('🔍 Component state:', { 
+  status, 
+  hasSession: !!session?.user, 
+  userStatus, 
+  showWalletStep, 
+  isSubmitted 
+})
+
+  // Check for incoming referral code on component mount
+  useEffect(() => {
+    // First check sessionStorage
+    const referralCode = sessionStorage.getItem('referralCode')
+    if (referralCode) {
+      setIncomingReferralCode(referralCode)
+    }
+    
+    // Also check URL parameters (from OAuth callback)
+    const urlParams = new URLSearchParams(window.location.search)
+    const urlReferralCode = urlParams.get('ref')
+    if (urlReferralCode) {
+      setIncomingReferralCode(urlReferralCode)
+      sessionStorage.setItem('referralCode', urlReferralCode)
+    }
+  }, [])
 
   // Fetch waitlist members (sorted by follower count)
   useEffect(() => {
@@ -119,20 +147,50 @@ export default function WaitlistApp() {
     try {
       const { data } = await supabase
         .from('waitlist_users')
-        .select('wallet_address, id')
+        .select('wallet_address, id, referred_by')
         .or(`twitter_id.eq.${session.user.email || session.user.name},twitter_handle.eq.${session.user.name}`)
         .single()
   
-      if (data) {
+      console.log('User check result:', data)
+      
+      // Handle referral attribution if user is new and has a referral code
+      if (incomingReferralCode && !data?.referred_by) {
+        console.log('Attributing referral to user:', incomingReferralCode)
+        try {
+          const response = await fetch('/api/referral/attribute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ referralCode: incomingReferralCode })
+          })
+          
+          if (response.ok) {
+            const result = await response.json()
+            console.log('Referral attributed successfully:', result)
+            sessionStorage.removeItem('referralCode') // Clean up
+          }
+        } catch (error) {
+          console.error('Error attributing referral:', error)
+        }
+      }
+      
+      // Check if user exists AND has completed the full flow
+      if (data && data.wallet_address !== null) {
+        // User has completed everything including wallet step
+        console.log('Existing user who completed wallet step')
         setUserStatus('existing')
+      } else if (data && data.wallet_address === null) {
+        // User exists but hasn't done wallet step yet
+        console.log('User exists but needs wallet step')
+        setUserStatus('new')
       } else {
+        console.log('Completely new user')
         setUserStatus('new')
       }
-    } catch (err) {
-      console.error('Error checking user status:', err)
+    } catch {
+      console.log('User not found, treating as new')
       setUserStatus('new')
     }
-  }, [session?.user])
+  }, [session?.user, incomingReferralCode])
 
   useEffect(() => {
     if (status === 'authenticated' && session?.user) {
@@ -142,22 +200,71 @@ export default function WaitlistApp() {
     }
   }, [status, session, checkUserStatus])
   
+// Add this additional useEffect to handle the wallet step
+useEffect(() => {
+  const wasJustAuthenticated = sessionStorage.getItem('justAuthenticated') === 'true'
+  console.log('🔍 Wallet useEffect triggered:', { userStatus, hasSession: !!session?.user, isSubmitted, wasJustAuthenticated })
   
-  // Update the Twitter auth handler
-  const handleTwitterAuth = () => {
-    if (userStatus === 'new' && session?.user) {
-      // User is signed in but new, go to wallet step
-      setShowWalletStep(true)
-    } else {
-      // Sign in with Twitter
-      signIn('twitter', { callbackUrl: window.location.origin })
+  if (userStatus === 'new' && session?.user && !isSubmitted && wasJustAuthenticated) {
+    console.log('✅ Showing wallet step!')
+    setShowWalletStep(true)
+    sessionStorage.removeItem('justAuthenticated') // Clear the flag
+  }
+}, [userStatus, session, isSubmitted])
+
+  useEffect(() => {
+    const fetchReferralCode = async () => {
+      if (!session?.user || !isSubmitted) return
+      
+      const userId = session.user.email || session.user.name
+      const userHandle = session.user.name
+      
+      if (!userId || !userHandle) return
+      
+      const { data } = await supabase
+        .from('waitlist_users')
+        .select('referral_code')
+        .or(`twitter_id.eq.${userId},twitter_handle.eq.${userHandle}`)
+        .single()
+      
+      if (data?.referral_code) {
+        setUserReferralCode(data.referral_code)
+      }
     }
+    
+    fetchReferralCode()
+  }, [session, isSubmitted])
+  
+  
+  const handleTwitterAuth = () => {
+    console.log('🚀 Starting Twitter auth...')
+    sessionStorage.setItem('justAuthenticated', 'true') // Persist across OAuth redirect
+    
+    // If there's a referral code, include it in the callback URL
+    const referralCode = sessionStorage.getItem('referralCode')
+    const callbackUrl = referralCode 
+      ? `${window.location.origin}?ref=${referralCode}`
+      : window.location.origin
+    
+    signIn('twitter', { callbackUrl })
   }
 
   if (isSubmitted) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4" style={{background: 'linear-gradient(135deg, #f8d7da 0%, #f4c2a1 50%, #fef7e6 100%)'}}>
-        <div className="bg-white/90 backdrop-blur-lg rounded-2xl p-8 max-w-md w-full text-center border border-pink-200 shadow-xl">
+        <div className="bg-white/90 backdrop-blur-lg rounded-2xl p-8 max-w-md w-full text-center border border-pink-200 shadow-xl relative">
+          {/* ADD CLOSE BUTTON */}
+          <button 
+            onClick={() => {
+              setIsSubmitted(false)
+              setShowWalletStep(false)
+              window.location.reload()
+            }}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold"
+          >
+            ×
+          </button>
+          
           <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-pink-800 mb-2">You made it! 🎉</h2>
           <p className="text-pink-600 mb-6">
@@ -166,18 +273,32 @@ export default function WaitlistApp() {
           <div className="bg-pink-100 rounded-lg p-4 mb-6 border border-pink-200">
             <p className="text-pink-800 font-medium">Share your referral link:</p>
             <div className="mt-2 flex items-center justify-between bg-white rounded-lg p-2 border border-pink-200">
-              <span className="text-pink-600 text-sm">baddie.style/ref/{session?.user?.name}</span>
+            <span className="text-pink-600 text-sm">baddie.style/ref/{userReferralCode || 'loading'}</span>
               <button className="text-pink-500 hover:text-pink-600">
                 <ExternalLink className="w-4 h-4" />
               </button>
             </div>
           </div>
           <button 
-            onClick={() => window.location.reload()} 
-            className="w-full bg-gradient-to-r from-pink-400 to-pink-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-pink-500 hover:to-pink-600 transition-all duration-200 shadow-lg"
-          >
-            Share on Twitter
-          </button>
+  onClick={() => {
+    const tweetText = `Just joined the BeraBaddie waitlist! 💅✨ Customize your Y2K digital baddie and mint exclusive NFTs. Join me: baddie.style/ref/${userReferralCode}`
+    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
+    
+    // Open Twitter in new tab
+    window.open(tweetUrl, '_blank')
+    
+    // Close the modal and return to homepage after a short delay
+    setTimeout(() => {
+      setIsSubmitted(false)
+      setShowWalletStep(false)
+      // Optionally reload to show updated state
+      window.location.reload()
+    }, 1000) // 1 second delay to let Twitter open
+  }}
+  className="w-full bg-gradient-to-r from-pink-400 to-pink-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-pink-500 hover:to-pink-600 transition-all duration-200 shadow-lg"
+>
+  Share on Twitter
+</button>
         </div>
       </div>
     );
@@ -241,16 +362,44 @@ export default function WaitlistApp() {
     <div className="min-h-screen" style={{background: 'linear-gradient(135deg, #f8d7da 0%, #f4c2a1 50%, #fef7e6 100%)'}}>
       {/* Header */}
       <header className="container mx-auto px-4 py-6">
+  {/* TEMPORARY DEBUG - Remove this after testing */}
+  <div className="bg-red-100 p-2 mb-4 text-sm">
+    <p>Status: {status}</p>
+    <p>Session exists: {session ? 'Yes' : 'No'}</p>
+    <p>User: {session?.user?.name || 'None'}</p>
+    <p>User Status: {userStatus}</p>
+  </div>
+  {/* END DEBUG */}
+  
   <div className="flex items-center justify-between">
     <div className="flex items-center space-x-2">
+      <h1 className="text-pink-800 font-bold text-xl">baddie.style</h1>
     </div>
     <div className="flex items-center space-x-4 text-pink-600/80">
-      {session?.user && (
-        <div className="flex items-center space-x-2 bg-pink-100 rounded-lg px-3 py-1">
-          <CheckCircle className="w-4 h-4 text-green-500" />
-          <span className="text-sm text-pink-700">Youre on the list!</span>
+      {/* Simple test to see if session is detected */}
+      {session?.user ? (
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 bg-pink-100 rounded-lg px-3 py-1">
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            <span className="text-sm text-pink-700">Youre on the list!</span>
+          </div>
+          <button 
+            onClick={() => {
+              setUserStatus('unknown')
+              setShowWalletStep(false)
+              setIsSubmitted(false)
+              setWalletAddress('')
+              signOut({ callbackUrl: window.location.origin, redirect: true })
+            }}
+            className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition-colors"
+          >
+            Sign Out
+          </button>
         </div>
+      ) : (
+        <span className="text-sm">Not signed in</span>
       )}
+      
       <div className="flex items-center space-x-2">
         <Users className="w-4 h-4" />
         <span className="text-sm">{totalUsers} joined</span>
@@ -295,6 +444,21 @@ export default function WaitlistApp() {
     </p>
   </div>
 </div>
+
+            {/* Referral Notification */}
+            {incomingReferralCode && (
+              <div className="bg-gradient-to-r from-purple-200/70 to-pink-200/70 border border-purple-300 rounded-2xl p-6 backdrop-blur-sm">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-bold">!</span>
+                  </div>
+                  <h3 className="text-purple-800 font-semibold">You&apos;ve been referred!</h3>
+                </div>
+                <p className="text-purple-700">
+                  A friend invited you to join the BeraBaddie waitlist. Sign up now to secure your spot and give them credit for the referral! 💜
+                </p>
+              </div>
+            )}
 
             {/* Beta Perks Callout */}
             <div className="bg-gradient-to-r from-pink-200/70 to-pink-300/70 border border-pink-300 rounded-2xl p-6 backdrop-blur-sm">

@@ -34,6 +34,22 @@ interface TwitterProfile {
   data?: TwitterProfileData
 }
 
+function generateCleanReferralCode(username: string): string {
+  // Remove special characters and emojis, convert to lowercase
+  const cleaned = username
+    .replace(/[^a-zA-Z0-9]/g, '') // Remove non-alphanumeric
+    .toLowerCase()
+    .substring(0, 8) // Limit to 8 characters
+  
+  // If cleaned name is too short or empty, add random characters
+  if (cleaned.length < 4) {
+    const randomSuffix = Math.random().toString(36).substring(2, 6)
+    return (cleaned + randomSuffix).substring(0, 8)
+  }
+  
+  return cleaned
+}
+
 const handler = NextAuth({
   providers: [
     TwitterProvider({
@@ -63,7 +79,8 @@ const handler = NextAuth({
         const followerCount = twitterProfile?.data?.public_metrics?.followers_count || 
                              twitterProfile?.public_metrics?.followers_count || 0
         
-        console.log('Final follower count:', followerCount)
+        // Generate clean referral code
+        const referralCode = generateCleanReferralCode(twitterProfile?.username || user.name || 'user')
         
         const { data, error } = await supabase
           .from('waitlist_users')
@@ -74,12 +91,13 @@ const handler = NextAuth({
             twitter_avatar: twitterProfile?.profile_image_url || user.image || '',
             follower_count: followerCount,
             is_verified: twitterProfile?.verified || false,
+            referral_code: referralCode, // Add this line
           }, {
             onConflict: 'twitter_id'
           })
           .select()
           .single()
-
+    
         if (error) {
           console.error('Error storing user:', error)
           return false
