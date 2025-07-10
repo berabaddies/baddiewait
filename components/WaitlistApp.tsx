@@ -273,7 +273,7 @@ useEffect(() => {
           <div className="bg-pink-100 rounded-lg p-4 mb-6 border border-pink-200">
             <p className="text-pink-800 font-medium">Share your referral link:</p>
             <div className="mt-2 flex items-center justify-between bg-white rounded-lg p-2 border border-pink-200">
-            <span className="text-pink-600 text-sm">baddie.style/ref/{userReferralCode || 'loading'}</span>
+            <span className="text-pink-600 text-sm">berabaddiewaitlist-4e1z.vercel.app/ref/{userReferralCode || 'loading'}</span>
               <button className="text-pink-500 hover:text-pink-600">
                 <ExternalLink className="w-4 h-4" />
               </button>
@@ -281,7 +281,7 @@ useEffect(() => {
           </div>
           <button 
   onClick={() => {
-    const tweetText = `Just joined the BeraBaddie waitlist! 💅✨ Customize your Y2K digital baddie and mint exclusive NFTs. Join me: baddie.style/ref/${userReferralCode}`
+    const tweetText = `Just joined the BeraBaddie waitlist! 💅✨ Customize your Y2K digital baddie and mint exclusive NFTs. Join me: https://berabaddiewaitlist-4e1z.vercel.app/ref/${userReferralCode}`
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
     
     // Open Twitter in new tab
