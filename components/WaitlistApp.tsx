@@ -388,7 +388,7 @@ useEffect(() => {
       {session?.user && (
         <div className="flex items-center space-x-2 bg-pink-100 rounded-lg px-3 py-1">
           <CheckCircle className="w-4 h-4 text-green-500" />
-          <span className="text-sm text-pink-700">You're on the list!</span>
+          <span className="text-sm text-pink-700">You&apos;re on the list!</span>
         </div>
       )}
       

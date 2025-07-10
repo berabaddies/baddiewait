@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { createClient } from '@supabase/supabase-js'
 
-interface SessionUser {
-  id?: string
-  name?: string | null
-  email?: string | null
-  image?: string | null
-}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
