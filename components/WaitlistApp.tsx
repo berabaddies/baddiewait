@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { signIn, signOut, useSession } from 'next-auth/react'
+import { signIn, useSession } from 'next-auth/react'
 import { createClient } from '@supabase/supabase-js'
 import { Users, Trophy, Wallet, ExternalLink, CheckCircle } from 'lucide-react'
 
@@ -291,7 +291,7 @@ useEffect(() => {
           <div className="bg-pink-100 rounded-lg p-4 mb-6 border border-pink-200">
             <p className="text-pink-800 font-medium">Share your referral link:</p>
             <div className="mt-2 flex items-center justify-between bg-white rounded-lg p-2 border border-pink-200">
-            <span className="text-pink-600 text-sm">berabaddiewaitlist-4e1z.vercel.app/ref/{userReferralCode || 'loading'}</span>
+            <span className="text-pink-600 text-sm">waitlist.baddie.style/ref/{userReferralCode || 'loading'}</span>
               <button className="text-pink-500 hover:text-pink-600">
                 <ExternalLink className="w-4 h-4" />
               </button>
@@ -299,7 +299,7 @@ useEffect(() => {
           </div>
           <button 
   onClick={() => {
-    const tweetText = `Just joined the BeraBaddie waitlist! 💅✨ Customize your Y2K digital baddie and mint exclusive NFTs. Join me: https://berabaddiewaitlist-4e1z.vercel.app/ref/${userReferralCode}`
+    const tweetText = `Just joined the BeraBaddie waitlist! 💅✨ Customize your Y2K digital baddie and mint exclusive NFTs. Join me: https://waitlist.baddie.style/ref/${userReferralCode}`
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
     
     // Open Twitter in new tab
@@ -380,42 +380,16 @@ useEffect(() => {
     <div className="min-h-screen" style={{background: 'linear-gradient(135deg, #f8d7da 0%, #f4c2a1 50%, #fef7e6 100%)'}}>
       {/* Header */}
       <header className="container mx-auto px-4 py-6">
-  {/* TEMPORARY DEBUG - Remove this after testing */}
-  <div className="bg-red-100 p-2 mb-4 text-sm">
-    <p>Status: {status}</p>
-    <p>Session exists: {session ? 'Yes' : 'No'}</p>
-    <p>User: {session?.user?.name || 'None'}</p>
-    <p>User Status: {userStatus}</p>
-  </div>
-  {/* END DEBUG */}
-  
   <div className="flex items-center justify-between">
     <div className="flex items-center space-x-2">
       <h1 className="text-pink-800 font-bold text-xl">baddie.style</h1>
     </div>
     <div className="flex items-center space-x-4 text-pink-600/80">
-      {/* Simple test to see if session is detected */}
-      {session?.user ? (
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 bg-pink-100 rounded-lg px-3 py-1">
-            <CheckCircle className="w-4 h-4 text-green-500" />
-            <span className="text-sm text-pink-700">Youre on the list!</span>
-          </div>
-          <button 
-            onClick={() => {
-              setUserStatus('unknown')
-              setShowWalletStep(false)
-              setIsSubmitted(false)
-              setWalletAddress('')
-              signOut({ callbackUrl: window.location.origin, redirect: true })
-            }}
-            className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition-colors"
-          >
-            Sign Out
-          </button>
+      {session?.user && (
+        <div className="flex items-center space-x-2 bg-pink-100 rounded-lg px-3 py-1">
+          <CheckCircle className="w-4 h-4 text-green-500" />
+          <span className="text-sm text-pink-700">You're on the list!</span>
         </div>
-      ) : (
-        <span className="text-sm">Not signed in</span>
       )}
       
       <div className="flex items-center space-x-2">
