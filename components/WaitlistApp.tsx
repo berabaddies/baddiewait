@@ -21,6 +21,13 @@ interface WaitlistUser {
   created_at: string
 }
 
+interface SessionUser {
+  id?: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+}
+
 export default function WaitlistApp() {
   const { data: session, status } = useSession()
   const [showWalletStep, setShowWalletStep] = useState(false)
@@ -114,19 +121,27 @@ console.log('🔍 Component state:', {
   const handleWalletSubmit = async () => {
     if (!session?.user) return
   
-    // Try multiple ways to identify the user
-    const userId = session.user.email || session.user.name
-  
-    const { error: updateError } = await supabase
-      .from('waitlist_users')
-      .update({ wallet_address: walletAddress })
-      .or(`twitter_id.eq.${userId},twitter_handle.eq.${session.user.name}`)
-  
-    if (updateError) {
-      console.error('Error updating wallet:', updateError)
-    } else {
-      setIsSubmitted(true)
-      fetchWaitlistMembers() // Refresh the list
+    console.log('Submitting wallet address via API:', walletAddress)
+    
+    try {
+      const response = await fetch('/api/wallet/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress })
+      })
+      
+      const result = await response.json()
+      console.log('API response:', result)
+      
+      if (response.ok && result.success) {
+        console.log('Successfully updated wallet!')
+        setIsSubmitted(true)
+        fetchWaitlistMembers()
+      } else {
+        console.error('Failed to update wallet:', result.error)
+      }
+    } catch (error) {
+      console.error('Error calling wallet API:', error)
     }
   }
 
@@ -145,10 +160,13 @@ console.log('🔍 Component state:', {
     if (!session?.user) return
   
     try {
+      const twitterId = (session.user as SessionUser).id || session.user.email
+      const twitterHandle = session.user.name?.replace('@', '') || session.user.name
+      
       const { data } = await supabase
         .from('waitlist_users')
         .select('wallet_address, id, referred_by')
-        .or(`twitter_id.eq.${session.user.email || session.user.name},twitter_handle.eq.${session.user.name}`)
+        .or(`twitter_id.eq.${twitterId},twitter_handle.eq.${twitterHandle}`)
         .single()
   
       console.log('User check result:', data)
@@ -216,15 +234,15 @@ useEffect(() => {
     const fetchReferralCode = async () => {
       if (!session?.user || !isSubmitted) return
       
-      const userId = session.user.email || session.user.name
-      const userHandle = session.user.name
+      const twitterId = (session.user as SessionUser).id || session.user.email
+      const twitterHandle = session.user.name?.replace('@', '') || session.user.name
       
-      if (!userId || !userHandle) return
+      if (!twitterId || !twitterHandle) return
       
       const { data } = await supabase
         .from('waitlist_users')
         .select('referral_code')
-        .or(`twitter_id.eq.${userId},twitter_handle.eq.${userHandle}`)
+        .or(`twitter_id.eq.${twitterId},twitter_handle.eq.${twitterHandle}`)
         .single()
       
       if (data?.referral_code) {
@@ -349,7 +367,7 @@ useEffect(() => {
                 onClick={handleWalletSubmit}
                 className="flex-1 bg-gradient-to-r from-pink-400 to-pink-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-pink-500 hover:to-pink-600 transition-all duration-200 shadow-lg"
               >
-                Join Waitlist
+                Add Wallet
               </button>
             </div>
           </div>
@@ -474,8 +492,19 @@ useEffect(() => {
             {/* CTA */}
             <div className="space-y-4">
   <button
-    onClick={handleTwitterAuth}
-    disabled={status === 'loading' || userStatus === 'checking'}
+    onClick={() => {
+      if (userStatus === 'existing') {
+        // Do nothing - user is already fully signed up
+        return;
+      } else if (userStatus === 'new' && session?.user) {
+        // User is authenticated but needs to complete wallet step
+        setShowWalletStep(true);
+      } else {
+        // User needs to sign in
+        handleTwitterAuth();
+      }
+    }}
+    disabled={status === 'loading' || userStatus === 'checking' || userStatus === 'existing'}
     className="w-full bg-gradient-to-r from-pink-400 to-pink-500 text-white font-semibold py-4 px-8 rounded-xl hover:from-pink-500 hover:to-pink-600 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-lg"
   >
     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -484,7 +513,7 @@ useEffect(() => {
     <span>
       {userStatus === 'checking' ? 'Loading...' :
        userStatus === 'existing' ? 'You are already In!' :
-       userStatus === 'new' && session?.user ? 'Complete Signup' :
+       userStatus === 'new' && session?.user ? 'Add Wallet Address' :
        'Join Waitlist with Twitter'}
     </span>
   </button>

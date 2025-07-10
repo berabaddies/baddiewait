@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { createClient } from '@supabase/supabase-js'
 
+interface SessionUser {
+  id?: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -32,11 +39,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Update the current user with the referral attribution using the UUID id
-    const userId = session.user.email || session.user.name
+    const twitterId = (session.user as SessionUser).id || session.user.email
+    const twitterHandle = session.user.name?.replace('@', '') || session.user.name
     const { data: updatedUser, error: updateError } = await supabase
       .from('waitlist_users')
       .update({ referred_by: referrer.id })
-      .or(`twitter_id.eq.${userId},twitter_handle.eq.${session.user.name}`)
+      .or(`twitter_id.eq.${twitterId},twitter_handle.eq.${twitterHandle}`)
       .select()
       .single()
 
